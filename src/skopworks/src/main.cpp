@@ -6,82 +6,79 @@
 
 #include <gameAssetsPath.h>
 
+
+//namespace
 using namespace tloc;
 
-namespace {
 
-#if defined (TLOC_OS_WIN)
+//shader paths
+namespace 
+{
     core_str::String shaderPathVS("/shaders/tlocOneTextureVS.glsl");
-#elif defined (TLOC_OS_IPHONE)
-    core_str::String shaderPathVS("/shaders/tlocOneTextureVS_gl_es_2_0.glsl");
-#endif
-
-#if defined (TLOC_OS_WIN)
     core_str::String shaderPathFS("/shaders/tlocOneTextureFS.glsl");
-#elif defined (TLOC_OS_IPHONE)
-    core_str::String shaderPathFS("/shaders/tlocOneTextureFS_gl_es_2_0.glsl");
-#endif
 
-  const core_str::String g_assetsPath(GetAssetsPath());
-
+	const core_str::String g_assetsPath(GetAssetsPath());
 };
 
-// ///////////////////////////////////////////////////////////////////////
-// Demo app
-
-class Demo 
-  : public Application
+/////////////////////////////////////////////////////////////////////////
+// lighting sample
+class Program : public Application
 {
 public:
-  Demo()
-    : Application("2LoC Engine")
-  { }
+	Program() : Application("2LoC Engine") { }
 
 private:
-  error_type Post_Initialize() override
-  {
-    auto& scene = GetScene();
-    scene->AddSystem<gfx_cs::MaterialSystem>();
-    auto meshSys = scene->AddSystem<gfx_cs::MeshRenderSystem>();
-    meshSys->SetRenderer(GetRenderer());
+	//after calling the constructor
+	error_type Post_Initialize() override
+	{
 
-    //------------------------------------------------------------------------
+	//get the path to the object file
+		auto path = core_io::Path(core_str::String(GetAssetsPath()) + "/models/sphere.obj");
+			//any place you want to pass a string or const char, use a BufferArg, converts to and from both.
 
-    auto_cref to = app::resources::f_resource::LoadImageAsTextureObject
-      (core_io::Path(g_assetsPath + "/images/engine_logo.png"));
+	//open up the .obj file, and report error if necessary
+		core_io::FileIO_ReadA objFile(path);
+		if (objFile.Open() != ErrorSuccess)
+		{
+			TLOC_LOG_GFX_ERR() << "Could not open " << path;
+			return ErrorFailure;
+		}
 
-    gfx_gl::uniform_vso  u_to;
-    u_to->SetName("s_texture").SetValueAs(*to);
+	//get contents of the .obj file
+		core_str::String objFileContents;
+		objFile.GetContents(objFileContents);
 
-    //------------------------------------------------------------------------
+	//try loading the object, and check for parsing errors
+		gfx_med::ObjLoader objLoader;
+		if (objLoader.Init(objFileContents) != ErrorSuccess)
+		{
+			TLOC_LOG_GFX_ERR() << "Failed to parse .obj file.";
+			return ErrorFailure;
+		}
 
-    math_t::Rectf_c rect(math_t::Rectf_c::width(1.0f * 2.0f),
-                         math_t::Rectf_c::height(GetWindow()->GetAspectRatio().Get() * 2.0f));
+	//unpack the vertices of the object
+		gfx_med::ObjLoader::vert_cont_type vertices;
+		objLoader.GetUnpacked(vertices, 0);
 
-    core_cs::entity_vptr q = scene->CreatePrefab<pref_gfx::Quad>()
-      .Dimensions(rect).Create();
-
-    scene->CreatePrefab<pref_gfx::Material>()
-      .AssetsPath(GetAssetsPath())
-      .AddUniform(u_to.get())
-      .Add(q, core_io::Path(shaderPathVS), core_io::Path(shaderPathFS));
-
-    return Application::Post_Initialize();
-  }
+		return Application::Post_Initialize();
+	}
 };
 
-// xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx
 
+
+//xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx
+// main method
 int TLOC_MAIN(int , char *[])
 {
-  Demo demo;
-  demo.Initialize(core_ds::MakeTuple(800, 600));
-  demo.Run();
+	//declare and initialize the program
+	Program program;
+	program.Initialize(core_ds::MakeTuple(800, 600));
 
-  //------------------------------------------------------------------------
-  // Exiting
-  TLOC_LOG_CORE_INFO() << "Exiting normally";
+	//run the program
+	program.Run();
 
-  return 0;
+	//on exit
+	TLOC_LOG_CORE_INFO() << "Exiting normally";
 
+	return 0;
 }
