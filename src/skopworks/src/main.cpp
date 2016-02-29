@@ -14,8 +14,8 @@ using namespace tloc;
 //shader paths
 namespace 
 {
-    core_str::String shaderPathVS("/shaders/tlocOneTextureVS.glsl");
-    core_str::String shaderPathFS("/shaders/tlocOneTextureFS.glsl");
+    core_str::String shaderPathVS("/shaders/tlocSimpleLightingVS.glsl");
+    core_str::String shaderPathFS("/shaders/tlocSimpleLightingFS.glsl");
 
 	const core_str::String g_assetsPath(GetAssetsPath());
 };
@@ -25,7 +25,7 @@ namespace
 class Program : public Application
 {
 public:
-	Program() : Application("2LoC Engine") { }
+	Program() : Application("lighting example") { }
 
 private:
 	//after calling the constructor
@@ -56,9 +56,41 @@ private:
 			return ErrorFailure;
 		}
 
+
+
+
+		//auto&
+	//get the scene from the application
+		auto			  scene = GetScene();
+						  scene->AddSystem<gfx_cs::MaterialSystem>();	//add material system
+						  scene->AddSystem<gfx_cs::CameraSystem>();		//add camera
+		auto meshSystem = scene->AddSystem<gfx_cs::MeshRenderSystem>();	//add mesh render system
+
+	//set renderer
+		meshSystem->SetRenderer(GetRenderer());
+
+
 	//unpack the vertices of the object
 		gfx_med::ObjLoader::vert_cont_type vertices;
-		objLoader.GetUnpacked(vertices, 0);
+		{ objLoader.GetUnpacked(vertices, 0); }
+
+	//create mesh with the vertices, and create material with the shaders.
+		auto meshEntity = scene->CreatePrefab<pref_gfx::Mesh>().Create(vertices);
+						  scene->CreatePrefab<pref_gfx::Material>().AssetsPath(GetAssetsPath())
+																   .Add(meshEntity, core_io::Path(shaderPathVS), core_io::Path(shaderPathFS));
+
+	//add camera
+		auto cameraEntity = scene->CreatePrefab<pref_gfx::Camera>()
+			.Perspective(true)
+			.Near(0.1f)
+			.Far(100.0f)
+			.VerticalFOV(math_t::Degree(60.0f))
+			.Create(GetWindow()->GetDimensions());
+
+	//change camera's position
+		cameraEntity->GetComponent<math_cs::Transform>()->SetPosition(math_t::Vec3f32(0, 0, 5));
+
+		meshSystem->SetCamera(cameraEntity);
 
 		return Application::Post_Initialize();
 	}
