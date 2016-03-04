@@ -34,51 +34,41 @@ class Program : public Application
 public:
 	Program() : Application("lighting example") { }
 
-
-
+//typedefs
 private:
+	typedef ecs_ptr																			Scene;
+	typedef core::smart_ptr::VirtualPtr<graphics::component_system::MeshRenderSystem>		MeshRenderSystem;
+	typedef core::smart_ptr::VirtualPtr<core::component_system::Entity>						Entity;
+	typedef prefab::graphics::Material Material;
 
-//vertices of the sphere
-	gfx_med::ObjLoader::vert_cont_type vertices;
+//variables
+	Scene scene;				 //the scene from the application
+	MeshRenderSystem meshSystem; //the render system
 
-//position of the light
-	gfx_gl::uniform_vso u_lightPosition;
+	core_str::String sphereObjectPath = "/models/sphere-smooth.obj"; //the sphere (path to it)
+	Entity sphereMesh; //the actual sphere
+
+	gfx_gl::uniform_vso lightPosition; //position of the light
 
 
 
 
-	//after calling the constructor
+
+
+
+//after calling the constructor
 	error_type Post_Initialize() override
 	{
+		loadScene();
 
-	//load the object.
-		loadSphere();
+		sphereMesh = createMesh(sphereObjectPath);
 
-	//get the scene from the application
-		auto			  scene = GetScene();
-						  scene->AddSystem<gfx_cs::MaterialSystem>();	//add material system
-						  scene->AddSystem<gfx_cs::CameraSystem>();		//add camera
-		auto meshSystem = scene->AddSystem<gfx_cs::MeshRenderSystem>();	//add mesh render system
+//CAN NOT MAKE THIS A CLASS MEMBER??
+		Material sphereMaterial = createMaterial();
 
-		scene->
-
-	//set renderer
-		meshSystem->SetRenderer(GetRenderer());
-
-		setLightPosition();
-
-	//create mesh with the vertices, and create material with the shaders.
-		auto meshEntity = scene->CreatePrefab<pref_gfx::Mesh>().Create(vertices);
-						  scene->CreatePrefab<pref_gfx::Material>().AssetsPath(GetAssetsPath())
-																   .AddUniform(u_lightPosition.get())
-																   .Add(meshEntity, core_io::Path(shaderPathVS), core_io::Path(shaderPathFS));
-
-	
-
-	//set the camera
-		meshSystem->SetCamera(cameraEntity);
-
-
+//IS THERE A WAY I CAN PASS THESE INTO ^^^ AS AN OPTIONS PARAMETER OF SORTS?
+		sphereMaterial.AddUniform(lightPosition.get());
+		sphereMaterial.Add(sphereMesh, core_io::Path(shaderPathVS), core_io::Path(shaderPathFS));
 
 		return Application::Post_Initialize();
 	}
@@ -86,23 +76,34 @@ private:
 
 
 
-	core_io::Path getPathOfSphere()
+
+//load the scene
+	void loadScene()
 	{
-	//get the path to the object file
-		return core_io::Path(core_str::String(GetAssetsPath()) + "/models/sphere-smooth.obj");
-			//any place you want to pass a string or const char, use a BufferArg, converts to and from both.
+		scene = GetScene();
+					 scene->AddSystem<gfx_cs::MaterialSystem>();	//add material system
+					 scene->AddSystem<gfx_cs::CameraSystem>();		//add camera
+		meshSystem = scene->AddSystem<gfx_cs::MeshRenderSystem>();	//add mesh render system	
+
+
+	//set renderer
+		meshSystem->SetRenderer(GetRenderer());
+
+	//create and set the camera
+		meshSystem->SetCamera(createCamera());
+
+	//set the light position
+		setLightPosition();
 	}
 
-
-
-
-	void loadSphere()
+//load the passed object
+	gfx_med::ObjLoader::vert_cont_type loadObject(core_str::String object)
 	{
 	//open up the .obj file, and report error if necessary
-		core_io::FileIO_ReadA objFile(getPathOfSphere());
+		core_io::FileIO_ReadA objFile(getPath(object));
 		if (objFile.Open() != ErrorSuccess)
 		{
-			TLOC_LOG_GFX_ERR() << "Could not open " << getPathOfSphere();
+			TLOC_LOG_GFX_ERR() << "Could not open " << getPath(object);
 		}
 
 
@@ -119,23 +120,40 @@ private:
 		}
 
 
+	//vertices of the object
+		gfx_med::ObjLoader::vert_cont_type vertices;
+
 	//unpack the vertices of the object
 		{ objLoader.GetUnpacked(vertices, 0); }
+
+
+		return vertices;
 	}
 
-	void setLightPosition()
+//create mesh from given object path
+	Entity createMesh(core_str::String object)
 	{
-	//set the light's position
-		u_lightPosition->SetName("u_lightPosition").SetValueAs(math_t::Vec3f32(1.0f, 1.0f, 3.0f));
+		return scene->CreatePrefab<pref_gfx::Mesh>().Create(loadObject(sphereObjectPath));
 	}
 
-	void createCamera()
+//create material
+	Material createMaterial()
 	{
-		auto scene = GetScene();
+		return scene->CreatePrefab<pref_gfx::Material>().AssetsPath(GetAssetsPath());
+	}
 
+//get the path of the given string
+	core_io::Path getPath(core_str::String objectPath)
+	{
+		//get the path to the object file
+		return core_io::Path(core_str::String(GetAssetsPath()) + objectPath);
+		//any place you want to pass a string or const char, use a core_io::String (which is a BufferArg), converts to and from both.
+	}
 
-		//add camera
-		auto cameraEntity = scene->CreatePrefab<pref_gfx::Camera>()
+//create a camera
+	entity_ptr createCamera()
+	{
+		entity_ptr cameraEntity = scene->CreatePrefab<pref_gfx::Camera>()
 			.Perspective(true)
 			.Near(0.1f)
 			.Far(100.0f)
@@ -144,6 +162,15 @@ private:
 
 		//change camera's position
 		cameraEntity->GetComponent<math_cs::Transform>()->SetPosition(math_t::Vec3f32(0, 0, 5));
+
+		return cameraEntity;
+	}
+
+//set the shader's light positions
+	void setLightPosition()
+	{
+	//set the light's position
+		lightPosition->SetName("u_lightPosition").SetValueAs(math_t::Vec3f32(1.0f, 1.0f, 3.0f));
 	}
 };
 

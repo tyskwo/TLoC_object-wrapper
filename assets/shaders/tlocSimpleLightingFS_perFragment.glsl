@@ -17,7 +17,6 @@
 
 void main()
 {
-
 //set the color of the sphere
 	color = vec3(1.0, 0.0, 0.0);
 
