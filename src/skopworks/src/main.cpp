@@ -6,9 +6,6 @@
 
 #include <gameAssetsPath.h>
 
-
-
-//namespace
 using namespace tloc;
 
 
@@ -41,23 +38,23 @@ private:
 	typedef ecs_ptr																			Scene;
 	typedef core::smart_ptr::VirtualPtr<graphics::component_system::MeshRenderSystem>		MeshRenderSystem;
 	typedef core::smart_ptr::VirtualPtr<core::component_system::Entity>						Entity;
-	typedef core::smart_ptr::SharedPtr<pref_gfx::Material>									Material;
-
+	typedef gfx_cs::material_sptr 															Material;
+	/*core::smart_ptr::SharedPtr<pref_gfx::Material>*/
 
 //struct for a 3D object
 	struct Object
 	{
 	private:
-		Scene				scene;		//reference to the scene
-		core_str::String	objectPath;	//the path to the obj file
-		Entity				mesh;		//the actual object
-		Material			material;	//the material of the object
+		Scene				scene;			//reference to the scene
+		core_str::String	objectPath;		//the path to the obj file
+		Entity				mesh;			//the actual object
+		Material			material;		//the material of the object
 
 
 		//movement variables
-		float			mAngleX, mAngleY; //variables for rotation
-		float			mZoomFactor;	  //variable  for zoom
-		math_t::Vec3f32 mTranslation;	  //variable  for translation
+		float			mAngleX, mAngleY;	//variables for rotation
+		float			mZoomFactor;		//variable  for zoom
+		math_t::Vec3f32 mTranslation;		//variable  for translation
 
 	public:
 		//intialize and create the object
@@ -165,6 +162,8 @@ private:
 //variables
 	Scene				scene;		//the scene from the application
 	MeshRenderSystem	meshSystem; //the render system
+
+	Material defaultMaterial; //the default material with per-fragment lighting
 	
 	Object* sphere; //the sphere
 
@@ -176,6 +175,8 @@ private:
 	input_hid::keyboard_b_vptr  mKeyboard;
 	input_hid::mouse_b_vptr     mMouse;
 
+	float mouseSensitivity = 100.0f; //value to hold how sensitive the mouse movement will relate to acting on the object.
+
 
 //after calling the constructor
 	error_type Post_Initialize() override
@@ -185,8 +186,7 @@ private:
 		loadScene();
 
 	//create a default material and set the light position
-		Material defaultMaterial = createMaterial(shaderPathVS, shaderPathFS);
-		defaultMaterial->AddUniform(lightPosition.get());
+		defaultMaterial = createMaterial(shaderPathVS, shaderPathFS);
 
 	//initialize the sphere
 		sphere = new Object(scene, "/models/sphere-smooth.obj", defaultMaterial);
@@ -235,13 +235,12 @@ private:
 //create material
 	Material createMaterial(core_str::String vertexShader, core_str::String fragmentShader)
 	{
-		auto	 materialEntity		= scene->CreatePrefab<pref_gfx::Material>().Create(core_io::Path(vertexShader), core_io::Path(fragmentShader));
-		Material materialComponent	= materialEntity->GetComponent<pref_gfx::Material>();
+		auto	materialEntity = scene->CreatePrefab<pref_gfx::Material>()
+			.AssetsPath(GetAssetsPath())
+			.AddUniform(lightPosition.get())
+			.Create(core_io::Path(vertexShader), core_io::Path(fragmentShader));
 
-		//set the assets path of the material.
-		materialComponent->AssetsPath(GetAssetsPath());
-
-		return materialComponent;
+		return materialEntity->GetComponent<gfx_cs::Material>();
 	}
 //create the mouse and keyboard
 	void createInputDevices()
@@ -287,19 +286,21 @@ private:
 			//left mouse button --- rotate
 			if (mMouse && mMouse->IsButtonDown(input_hid::MouseEvent::left))
 			{
-				sphere->SetRotation(core_utils::CastNumber<tl_float>(currentMouseState.m_Y.m_rel) / 100.0f, core_utils::CastNumber<tl_float>(currentMouseState.m_X.m_rel) / 100.0f);
+				sphere->SetRotation(core_utils::CastNumber<tl_float>(currentMouseState.m_Y.m_rel) / mouseSensitivity, 
+									core_utils::CastNumber<tl_float>(currentMouseState.m_X.m_rel) / mouseSensitivity);
 			}
 
 			//right mouse button --- zoom
 			if (mMouse && mMouse->IsButtonDown(input_hid::MouseEvent::right))
 			{
-				sphere->SetZoom(core_utils::CastNumber<tl_float>(currentMouseState.m_Y.m_rel / 100.0f));
+				sphere->SetZoom(core_utils::CastNumber<tl_float>(currentMouseState.m_Y.m_rel / mouseSensitivity));
 			}
 
 			//middle mouse button --- translate
 			if (mMouse && mMouse->IsButtonDown(input_hid::MouseEvent::middle))
 			{
-				sphere->SetTranslation(core_utils::CastNumber<tl_float>(currentMouseState.m_X.m_rel) / 100.0f, core_utils::CastNumber<tl_float>(currentMouseState.m_Y.m_rel) / 100.0f);
+				sphere->SetTranslation(core_utils::CastNumber<tl_float>(currentMouseState.m_X.m_rel) / mouseSensitivity,
+									   core_utils::CastNumber<tl_float>(currentMouseState.m_Y.m_rel) / mouseSensitivity);
 			}
 		}
 	}
