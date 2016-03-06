@@ -39,7 +39,7 @@ private:
 	typedef core::smart_ptr::VirtualPtr<graphics::component_system::MeshRenderSystem>		MeshRenderSystem;
 	typedef core::smart_ptr::VirtualPtr<core::component_system::Entity>						Entity;
 	typedef gfx_cs::material_sptr 															Material;
-	/*core::smart_ptr::SharedPtr<pref_gfx::Material>*/
+
 
 //struct for a 3D object
 	struct Object
@@ -235,7 +235,7 @@ private:
 //create material
 	Material createMaterial(core_str::String vertexShader, core_str::String fragmentShader)
 	{
-		auto	materialEntity = scene->CreatePrefab<pref_gfx::Material>()
+		auto materialEntity = scene->CreatePrefab<pref_gfx::Material>()
 			.AssetsPath(GetAssetsPath())
 			.AddUniform(lightPosition.get())
 			.Create(core_io::Path(vertexShader), core_io::Path(fragmentShader));
@@ -247,17 +247,15 @@ private:
 	{
 		//create the input manager, and initialize the keyboard and mouse.
 		ParamList<core_t::Any> params;
-		params.m_param1 = this->GetWindow()->GetWindowHandle();
+		params.m_param1 = GetWindow()->GetWindowHandle();
 
-		mInputManager = core_sptr::MakeShared<input::InputManagerB>(params);
-		mKeyboard = mInputManager->CreateHID<input_hid::KeyboardB>();
-		mMouse = mInputManager->CreateHID<input_hid::MouseB>();
-
-
+		mInputManager	= core_sptr::MakeShared<input::InputManagerB>(params);
+		mKeyboard		= mInputManager->CreateHID<input_hid::KeyboardB>();
+		mMouse			= mInputManager->CreateHID<input_hid::MouseB>();
 
 		//check if there is a mouse and keyboard attached.
 		TLOC_LOG_CORE_WARN_IF(mKeyboard == nullptr) << "No keyboard detected";
-		TLOC_LOG_CORE_WARN_IF(mMouse == nullptr) << "No mouse detected";
+		TLOC_LOG_CORE_WARN_IF(mMouse == nullptr)	<< "No mouse detected";
 	}
 
 
