@@ -1,34 +1,24 @@
 #version 330 core
 
-//the position and normal of the vertex
-	in		vec3 v_vertPosition;
-	in      vec3 v_vertNormal;
+	in		vec3 v_vertPosition;			//the vertex position
+	in      vec3 v_vertNormal;				//the vertex normal
+	in		vec3 v_lightDirection;			//the light direction
 
-//the light position, the color of the sphere, and the interpolated normal vector for each vertice
-	        vec3 lightPosition;
-	        vec3 color;
-		    vec3 vertNorm_interpolated;
+	        vec3 color;						//the color of the sphere
+		    vec3 vertNorm_interpolated;		//the interpolated normal from each vertex
 
-//the position of the light
-	uniform vec3 u_lightPosition;
-
-//the color to pass to the renderer
-	out     vec3 o_color;
+	out     vec3 o_color;					//the color to pass to the renderer
 
 void main()
 {
 //set the color of the sphere
 	color = vec3(1.0, 0.0, 0.0);
 
-//determine the normal of the light's direction
-	vec3 lightDirection = u_lightPosition - v_vertPosition;
-	     lightDirection = normalize(lightDirection);
-
 //normalize the interpolated normal
 	vertNorm_interpolated = normalize(v_vertNormal);
 
 //get the diffuse multiplier
-	float diffuseMultiplier = dot(vertNorm_interpolated, lightDirection);
+	float diffuseMultiplier = dot(vertNorm_interpolated, v_lightDirection);
 
 //pass the calculated color to the renderer
 	o_color = diffuseMultiplier * color;
