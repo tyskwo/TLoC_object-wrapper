@@ -4,6 +4,11 @@
 #include <tlocPrefab/tloc_prefab.h>
 #include <tlocApplication/tloc_application.h>
 
+
+
+#include <tlocCore/io/tlocFileContents.h>
+
+
 #include <gameAssetsPath.h>
 
 
@@ -34,12 +39,14 @@ class Program : public Application
 public:
 	Program() : Application("lighting example") { }
 
-//typedefs
+
 private:
+
+//typedefs
 	typedef ecs_ptr																			Scene;
 	typedef core::smart_ptr::VirtualPtr<graphics::component_system::MeshRenderSystem>		MeshRenderSystem;
 	typedef core::smart_ptr::VirtualPtr<core::component_system::Entity>						Entity;
-	typedef prefab::graphics::Material Material;
+	typedef pref_gfx::Material																Material;
 
 //variables
 	Scene scene;				 //the scene from the application
@@ -52,7 +59,7 @@ private:
 
 
 
-
+	Material* sphereMaterial;
 
 
 
@@ -64,11 +71,11 @@ private:
 		sphereMesh = createMesh(sphereObjectPath);
 
 //CAN NOT MAKE THIS A CLASS MEMBER??
-		Material sphereMaterial = createMaterial();
+		sphereMaterial = createMaterial();
 
 //IS THERE A WAY I CAN PASS THESE INTO ^^^ AS AN OPTIONS PARAMETER OF SORTS?
-		sphereMaterial.AddUniform(lightPosition.get());
-		sphereMaterial.Add(sphereMesh, core_io::Path(shaderPathVS), core_io::Path(shaderPathFS));
+		sphereMaterial->AddUniform(lightPosition.get());
+		sphereMaterial->Add(sphereMesh, core_io::Path(shaderPathVS), core_io::Path(shaderPathFS));
 
 		return Application::Post_Initialize();
 	}
@@ -137,9 +144,14 @@ private:
 	}
 
 //create material
-	Material createMaterial()
+	Material* createMaterial()
 	{
-		return scene->CreatePrefab<pref_gfx::Material>().AssetsPath(GetAssetsPath());
+		Material* temp = new Material(scene->GetEntityManager(), scene->GetComponentPoolManager());
+
+		//set the assets path of the material.
+		temp->AssetsPath(GetAssetsPath());
+
+		return temp;
 	}
 
 //get the path of the given string
@@ -147,7 +159,7 @@ private:
 	{
 		//get the path to the object file
 		return core_io::Path(core_str::String(GetAssetsPath()) + objectPath);
-		//any place you want to pass a string or const char, use a core_io::String (which is a BufferArg), converts to and from both.
+			//any place you want to pass a string or const char, use a core_io::String (which is a BufferArg), converts to and from both.
 	}
 
 //create a camera
@@ -169,7 +181,6 @@ private:
 //set the shader's light positions
 	void setLightPosition()
 	{
-	//set the light's position
 		lightPosition->SetName("u_lightPosition").SetValueAs(math_t::Vec3f32(1.0f, 1.0f, 3.0f));
 	}
 };
