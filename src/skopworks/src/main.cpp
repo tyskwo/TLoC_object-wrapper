@@ -3,6 +3,7 @@
 #include <tlocMath/tloc_math.h>
 #include <tlocPrefab/tloc_prefab.h>
 #include <tlocApplication/tloc_application.h>
+#include <tlocInput/tloc_input.h>
 
 #include <gameAssetsPath.h>
 
@@ -38,6 +39,7 @@ private:
 	typedef ecs_ptr																			Scene;
 	typedef core::smart_ptr::VirtualPtr<graphics::component_system::MeshRenderSystem>		MeshRenderSystem;
 	typedef core::smart_ptr::VirtualPtr<core::component_system::Entity>						Entity;
+	typedef core::smart_ptr::VirtualPtr<input::component_system::ArcBallControlSystem>		ArcBallControlSystem;
 	typedef gfx_cs::material_sptr 															Material;
 
 
@@ -49,12 +51,6 @@ private:
 		core_str::String	objectPath;		//the path to the obj file
 		Entity				mesh;			//the actual object
 		Material			material;		//the material of the object
-
-
-		//movement variables
-		float			mAngleX, mAngleY;	//variables for rotation
-		float			mZoomFactor;		//variable  for zoom
-		math_t::Vec3f32 mTranslation;		//variable  for translation
 
 	public:
 		//intialize and create the object
@@ -73,42 +69,6 @@ private:
 		//getters for the mesh and material
 		Entity	 GetMesh()		{ return mesh;	   }
 		Material GetMaterial()  { return material; }
-
-		//setters for the object's transform
-		void SetRotation(float angleX, float angleY) 
-		{ 
-			mAngleX -= angleX;
-			mAngleY -= angleY;
-
-			mesh->GetComponent<math_cs::Transform>()->SetOrientation(
-
-			math::types::Matrix_T<f32, 3>( cos(mAngleY),  cos(mAngleX) + sin(mAngleX) * sin(mAngleY), sin(mAngleX) - cos(mAngleX) * sin(mAngleY),
-									      -cos(mAngleY),  cos(mAngleX) - sin(mAngleX) * sin(mAngleY), sin(mAngleX) + cos(mAngleX) * sin(mAngleY),
-										   sin(mAngleY),                -sin(mAngleX) * cos(mAngleY),                cos(mAngleX) * cos(mAngleY))
-			);
-		}
-		void SetZoom(float scale)
-		{
-			mZoomFactor -= scale;
-			if (mZoomFactor <= 0.0f) mZoomFactor = 0.01f; //check to make sure we're not negatively scaled.
-
-			mesh->GetComponent<math_cs::Transform>()->SetScale(math_t::Vec3f32(mZoomFactor, mZoomFactor, mZoomFactor));
-		}
-		void SetTranslation(float xDirection, float yDirection)
-		{
-			mTranslation[0] += xDirection;
-			mTranslation[1] -= yDirection;
-
-			//bounds checking
-			if (mTranslation[0] < -5.0f) mTranslation[0] = -5.0f;
-			if (mTranslation[0] >  5.0f) mTranslation[0] = 5.0f;
-
-			if (mTranslation[1] < -5.0f) mTranslation[1] = -5.0f;
-			if (mTranslation[1] >  5.0f) mTranslation[1] = 5.0f;
-
-
-			mesh->GetComponent<math_cs::Transform>()->SetPosition(math_t::Vec3f32(mTranslation[0], mTranslation[1], 0.0f));
-		}
 
 		//get the path of the given string
 		core_io::Path getPath(core_str::String objectPath)
@@ -160,8 +120,10 @@ private:
 
 
 //variables
-	Scene				scene;		//the scene from the application
-	MeshRenderSystem	meshSystem; //the render system
+	Scene					scene;			//the scene from the application
+	MeshRenderSystem		meshSystem;		//the render system
+	ArcBallControlSystem	cameraControl;	//the camera controls
+
 
 	Material defaultMaterial; //the default material with per-fragment lighting
 	
@@ -169,13 +131,6 @@ private:
 
 	gfx_gl::uniform_vso lightPosition; //position of the light
 
-
-	//input manager, keyboard, mouse
-	input::input_mgr_b_ptr		mInputManager;
-	input_hid::keyboard_b_vptr  mKeyboard;
-	input_hid::mouse_b_vptr     mMouse;
-
-	float mouseSensitivity = 100.0f; //value to hold how sensitive the mouse movement will relate to acting on the object.
 
 
 //after calling the constructor
@@ -189,7 +144,7 @@ private:
 		defaultMaterial = createMaterial(shaderPathVS, shaderPathFS);
 
 	//initialize the sphere
-		sphere = new Object(scene, "/models/sphere-smooth.obj", defaultMaterial);
+		sphere = new Object(scene, "/models/torus.obj", defaultMaterial);
 
 
 		return Application::Post_Initialize();
@@ -199,10 +154,11 @@ private:
 	void loadScene()
 	{
 		scene = GetScene();
-					 scene->AddSystem<gfx_cs::MaterialSystem>();	//add material system
-					 scene->AddSystem<gfx_cs::CameraSystem>();		//add camera
-		meshSystem = scene->AddSystem<gfx_cs::MeshRenderSystem>();	//add mesh render system	
-
+						scene->AddSystem<  gfx_cs::MaterialSystem>();		//add material system
+						scene->AddSystem<  gfx_cs::CameraSystem>();			//add camera
+		meshSystem    =	scene->AddSystem<  gfx_cs::MeshRenderSystem>();		//add mesh render system	
+						scene->AddSystem<  gfx_cs::ArcBallSystem >();		//add the arc ball system
+		cameraControl = scene->AddSystem<input_cs::ArcBallControlSystem>();	//add the control system
 
 	//set renderer
 		meshSystem->SetRenderer(GetRenderer());
@@ -210,11 +166,11 @@ private:
 	//create and set the camera
 		meshSystem->SetCamera(createCamera(true, 0.1f, 100.0f, 90.0f, math_t::Vec3f32(0, 0, 15)));
 
+	//set up the mouse and keyboard
+		registerInputDevices();
+
 	//set the light position
 		setLightPosition(math_t::Vec3f32(1.0f, 1.0f, 3.0f));
-
-	//set up the mouse and keyboard
-		createInputDevices();
 	}
 
 //create a camera
@@ -226,6 +182,12 @@ private:
 			.Far(farPlane)
 			.VerticalFOV(math_t::Degree(verticalFOV_degrees))
 			.Create(GetWindow()->GetDimensions());
+
+		//add the camera to the arcball system
+		scene->CreatePrefab<pref_gfx::ArcBall>().Add(cameraEntity);
+		scene->CreatePrefab<pref_input::ArcBallControl>()
+			.GlobalMultiplier(math_t::Vec2f(0.01f, 0.01f))
+			.Add(cameraEntity);
 
 		//change camera's position
 		cameraEntity->GetComponent<math_cs::Transform>()->SetPosition(position);
@@ -243,66 +205,11 @@ private:
 		return materialEntity->GetComponent<gfx_cs::Material>();
 	}
 //create the mouse and keyboard
-	void createInputDevices()
+	void registerInputDevices()
 	{
-		//create the input manager, and initialize the keyboard and mouse.
-		ParamList<core_t::Any> params;
-		params.m_param1 = GetWindow()->GetWindowHandle();
-
-		mInputManager	= core_sptr::MakeShared<input::InputManagerB>(params);
-		mKeyboard		= mInputManager->CreateHID<input_hid::KeyboardB>();
-		mMouse			= mInputManager->CreateHID<input_hid::MouseB>();
-
-		//check if there is a mouse and keyboard attached.
-		TLOC_LOG_CORE_WARN_IF(mKeyboard == nullptr) << "No keyboard detected";
-		TLOC_LOG_CORE_WARN_IF(mMouse == nullptr)	<< "No mouse detected";
+		GetKeyboard()->Register(&*cameraControl);
+		   GetMouse()->Register(&*cameraControl);
 	}
-
-
-// called each update
-	void DoUpdate(sec_type) override
-	{
-		//check input from HIDs
-		CheckInput();
-
-		//if escape key is pressed, exit program
-		if (mKeyboard && mKeyboard->IsKeyDown(input_hid::KeyboardEvent::escape)) { exit(0); }
-	}
-// receive update events, and change values accordingly
-	void CheckInput()
-	{
-		//update input manager
-		mInputManager->Update();
-
-		//get current mouse state
-		input_hid::MouseEvent currentMouseState = mMouse->GetState();
-
-		//check to see if either of the control buttons are pressed
-		if (mKeyboard && mKeyboard->IsKeyDown(input_hid::KeyboardEvent::left_control) ||
-			mKeyboard && mKeyboard->IsKeyDown(input_hid::KeyboardEvent::right_control))
-		{
-			//left mouse button --- rotate
-			if (mMouse && mMouse->IsButtonDown(input_hid::MouseEvent::left))
-			{
-				sphere->SetRotation(core_utils::CastNumber<tl_float>(currentMouseState.m_Y.m_rel) / mouseSensitivity, 
-									core_utils::CastNumber<tl_float>(currentMouseState.m_X.m_rel) / mouseSensitivity);
-			}
-
-			//right mouse button --- zoom
-			if (mMouse && mMouse->IsButtonDown(input_hid::MouseEvent::right))
-			{
-				sphere->SetZoom(core_utils::CastNumber<tl_float>(currentMouseState.m_Y.m_rel / mouseSensitivity));
-			}
-
-			//middle mouse button --- translate
-			if (mMouse && mMouse->IsButtonDown(input_hid::MouseEvent::middle))
-			{
-				sphere->SetTranslation(core_utils::CastNumber<tl_float>(currentMouseState.m_X.m_rel) / mouseSensitivity,
-									   core_utils::CastNumber<tl_float>(currentMouseState.m_Y.m_rel) / mouseSensitivity);
-			}
-		}
-	}
-
 
 //set the shader's light positions
 	void setLightPosition(math_t::Vec3f32 position)
