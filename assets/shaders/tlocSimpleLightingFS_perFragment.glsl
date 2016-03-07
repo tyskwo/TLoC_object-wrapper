@@ -1,13 +1,12 @@
 #version 330 core
 
-	in		vec3 v_vertPosition;			//the vertex position
-	in      vec3 v_vertNormal;				//the vertex normal
-	in		vec3 v_lightDirection;			//the light direction
+	in	vec3 v_vertNormal;			//the vertex normal
+	in	vec3 v_lightDirection;			//the light direction
 
-	        vec3 color;						//the color of the sphere
-		    vec3 vertNorm_interpolated;		//the interpolated normal from each vertex
+		vec3 color;				//the color of the sphere
+		vec3 vertNorm_interpolated;		//the interpolated normal from each vertex
 
-	out     vec3 o_color;					//the color to pass to the renderer
+	out     vec3 o_color;				//the color to pass to the renderer
 
 void main()
 {

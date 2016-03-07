@@ -1,28 +1,29 @@
 #version 330 core
 
-	in      vec3 a_vertPos;			//vertex position
+	in      vec3 a_vertPos;		//vertex position
 	in      vec3 a_vertNorm;		//vertex normal
 
-	uniform mat4 u_vp;				//the view projection matrix
+	uniform mat4 u_vp;			//the view projection matrix
 	uniform mat4 u_model;			//the model
-	uniform vec3 u_lightPosition;	//the light position
+	uniform vec3 u_lightPosition;		//the light position
 
-	out     vec3 v_vertPosition;	//the vertex's position
-	out		vec3 v_vertNormal;		//the vertex's normal
-	out		vec3 v_lightDirection;	//the light direction
+	out	 vec3 v_vertNormal;		//the vertex's normal
+	out	 vec3 v_lightDirection;	//the light direction
 
 void main()
 { 
-//determine the position of the vertice
+//determine the position of the vertex
 	gl_Position = u_vp * u_model * vec4(a_vertPos, 1);
 
-	//TODO: need to transform the light's position based on the camera's transformations.
+//transform into world view
+	vec3 vertexWorldPosition = (u_model * vec4(a_vertPos, 1)).xyz;
 
-//determine the light direction
-	v_lightDirection = u_lightPosition - a_vertPos;
+//determine the light direction based on world view
+	v_lightDirection = u_lightPosition - vertexWorldPosition;
 	v_lightDirection = normalize(v_lightDirection);
 
-//pass the position and normal to the fragment shader
-	v_vertPosition  = a_vertPos;
-	v_vertNormal    = a_vertNorm;
+//pass the normal to the fragment shader after transforming world view
+	mat3 rotationMatrix = mat3(u_model);
+
+	v_vertNormal = rotMat * a_vertNorm;
 }
