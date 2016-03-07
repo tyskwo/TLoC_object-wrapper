@@ -54,8 +54,7 @@ private:
 
 	public:
 		//intialize and create the object
-		Object(Scene sceneReference, core_str::String filePath, Material materialReference) :
-			mAngleX(0.0f), mAngleY(0.0f), mZoomFactor(1.0f), mTranslation(0.0f, 0.0f, 0.0f) //set the transform
+		Object(Scene sceneReference, core_str::String filePath, Material materialReference)
 		{
 			objectPath	= filePath;
 			scene		= sceneReference;
@@ -127,7 +126,8 @@ private:
 
 	Material defaultMaterial; //the default material with per-fragment lighting
 	
-	Object* sphere; //the sphere
+	core_conts::List<Object*> objects;
+	//Object* sphere; //the sphere
 
 	gfx_gl::uniform_vso lightPosition; //position of the light
 
@@ -144,7 +144,7 @@ private:
 		defaultMaterial = createMaterial(shaderPathVS, shaderPathFS);
 
 	//initialize the sphere
-		sphere = new Object(scene, "/models/torus.obj", defaultMaterial);
+		//sphere = new Object(scene, "/models/torus.obj", defaultMaterial);
 
 
 		return Application::Post_Initialize();
@@ -162,6 +162,11 @@ private:
 
 	//set renderer
 		meshSystem->SetRenderer(GetRenderer());
+
+	//set the background color
+		gfx_rend::Renderer::Params clearColor(GetRenderer()->GetParams());
+		clearColor.SetClearColor(gfx_t::Color(0.5f, 0.5f, 1.0f, 1.0f));
+		GetRenderer()->SetParams(clearColor);
 
 	//create and set the camera
 		meshSystem->SetCamera(createCamera(true, 0.1f, 100.0f, 90.0f, math_t::Vec3f32(0, 0, 15)));
@@ -215,6 +220,34 @@ private:
 	void setLightPosition(math_t::Vec3f32 position)
 	{
 		lightPosition->SetName("u_lightPosition").SetValueAs(position);
+	}
+
+	void DoUpdate(sec_type) override
+	{
+		// create and destroy the meshes on a keypress
+		if (GetKeyboard()->IsKeyDown(input_hid::KeyboardEvent::c))
+		{
+			Object* newObject = new Object(scene, "/models/torus.obj", defaultMaterial);
+			objects.push_back(newObject);
+
+			auto xPosition = core_rng::g_defaultRNG.GetRandomFloat(-10.0f, 10.0f);
+			auto yPosition = core_rng::g_defaultRNG.GetRandomFloat(-10.0f, 10.0f);
+			auto zPosition = core_rng::g_defaultRNG.GetRandomFloat(-10.0f, 10.0f);
+
+			newObject->GetMesh()->GetComponent<math_cs::Transform>()->SetPosition(math_t::Vec3f32(xPosition, yPosition, zPosition));
+			TLOC_LOG_CORE_DEBUG() << "CREATE.";
+		}
+
+		if (GetKeyboard()->IsKeyDown(input_hid::KeyboardEvent::u))
+		{
+			if (objects.size() > 0)
+			{
+				scene->GetEntityManager()->DestroyEntity(objects.front()->GetMesh());
+				objects.erase(objects.begin());
+			}
+
+			scene->GetComponentPoolManager()->RecycleAllUnused();
+		}
 	}
 };
 
