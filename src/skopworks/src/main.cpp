@@ -213,6 +213,7 @@ private:
 	void registerInputDevices()
 	{
 		GetKeyboard()->Register(&*cameraControl);
+		GetKeyboard()->Register(this);
 		   GetMouse()->Register(&*cameraControl);
 	}
 
